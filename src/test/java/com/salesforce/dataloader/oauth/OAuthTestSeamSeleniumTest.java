@@ -26,6 +26,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.Assert.*;
+import org.junit.Assert;
 
 /**
  * Clean OAuth test that uses the test seam pattern to inject Selenium into handleOAuthLogin().
@@ -117,7 +118,7 @@ public class OAuthTestSeamSeleniumTest extends ConfigTestBase {
         try {
             String currentUrl = driver.getCurrentUrl();
             System.out.println("🌐 Current URL: " + currentUrl);
-            
+
             if (currentUrl.contains("salesforce") || currentUrl.contains("orgfarm")) {
                 System.out.println("✅ Selenium navigated to OAuth URL");
                 
@@ -127,6 +128,11 @@ public class OAuthTestSeamSeleniumTest extends ConfigTestBase {
                     System.out.println("🔐 Performing login...");
                     performAutomatedLogin();
                     Thread.sleep(2000);
+                    
+                    // Assert we're no longer on login page
+                    String postLoginUrl = driver.getCurrentUrl();
+                    assertFalse("Should not be on login page after login", 
+                        postLoginUrl.contains("/login"));
                 }
 
                 // Handle authorization if needed
@@ -135,11 +141,20 @@ public class OAuthTestSeamSeleniumTest extends ConfigTestBase {
                     System.out.println("🖱️ Clicking authorization...");
                     handleAuthorizationPage();
                     Thread.sleep(3000);
+                    
+                    // Assert we moved past authorization page
+                    String postAuthUrl = driver.getCurrentUrl();
+                    assertTrue("Should be redirected after authorization", 
+                        !postAuthUrl.equals(currentUrl));
                 }
 
                 currentUrl = driver.getCurrentUrl();
                 if (currentUrl.contains("localhost:")) {
                     System.out.println("🎉 OAuth callback completed");
+                    
+                    // Assert we're on localhost callback
+                    assertTrue("Should be on localhost callback URL", 
+                        currentUrl.contains("localhost:"));
                     
                     // Use WebDriverWait to handle page loading and success verification
                     try {
@@ -170,11 +185,11 @@ public class OAuthTestSeamSeleniumTest extends ConfigTestBase {
                 }
                 
             } else {
-                System.out.println("⚠️ OAuth URL not detected: " + currentUrl);
+                Assert.fail("OAuth URL not detected: " + currentUrl);
             }
 
         } catch (Exception e) {
-            System.out.println("❌ Selenium error: " + e.getMessage());
+            Assert.fail("Selenium error during OAuth flow: " + e.getMessage());
         }
 
         // Wait for handleOAuthLogin() to complete
@@ -187,24 +202,22 @@ public class OAuthTestSeamSeleniumTest extends ConfigTestBase {
                 // Verify tokens were set
                 AppConfig config = getController().getAppConfig();
                 String accessToken = config.getString(AppConfig.PROP_OAUTH_ACCESSTOKEN);
-                String refreshToken = config.getString(AppConfig.PROP_OAUTH_REFRESHTOKEN);
                 String instanceUrl = config.getString(AppConfig.PROP_OAUTH_INSTANCE_URL);
                 
                 System.out.println("📋 Tokens: " + 
                     (accessToken != null && !accessToken.isEmpty() ? "✅ Access " : "❌ Access ") +
-                    (refreshToken != null && !refreshToken.isEmpty() ? "✅ Refresh " : "❌ Refresh ") +
                     (instanceUrl != null && !instanceUrl.isEmpty() ? "✅ Instance" : "❌ Instance"));
-                
+
                 assertTrue("handleOAuthLogin() should return true", result);
                 assertNotNull("Access token should be set", accessToken);
                 assertFalse("Access token should not be empty", accessToken.trim().isEmpty());
                 
             } else {
-                System.out.println("⚠️ handleOAuthLogin() returned false");
+                Assert.fail("handleOAuthLogin() returned false - OAuth flow failed");
             }
             
         } catch (Exception e) {
-            System.out.println("⏳ handleOAuthLogin() timed out: " + e.getMessage());
+            Assert.fail("handleOAuthLogin() timed out or failed: " + e.getMessage());
         }
 
         System.out.println("✅ Test completed");
@@ -217,59 +230,102 @@ public class OAuthTestSeamSeleniumTest extends ConfigTestBase {
     @Test
     public void testDeviceFlowBrowserAutomation() throws Exception {
         System.out.println("🧪 Starting clean OAuth flow test...");
-        
+
         // Set up Selenium to intercept browser calls
-        URLUtil.setTestHook(new SeleniumUrlOpener(driver));
+        SeleniumUrlOpener seleniumOpener = new SeleniumUrlOpener(driver);
+        URLUtil.setTestHook(seleniumOpener);
+        assertNotNull("Selenium URL opener should be set", seleniumOpener);
         
         // Start OAuth flow in background
-        CompletableFuture.runAsync(() -> {
+        CompletableFuture<Boolean> oauthFuture = CompletableFuture.supplyAsync(() -> {
             try {
                 OAuthFlowHandler oauthHandler = new OAuthFlowHandler(
                     getController().getAppConfig(),
-                    status -> {}, // Silent status updates
+                    status -> System.out.println("OAuth Status: " + status),
                     getController(),
                     () -> {}
                 );
-                oauthHandler.handleOAuthLogin();
+                return oauthHandler.handleOAuthLogin();
             } catch (Exception e) {
-                // Expected - flow will timeout
+                System.err.println("OAuth flow error: " + e.getMessage());
+                return false;
             }
         });
         
-            // Step 1: Wait for OAuth flow to determine and navigate to Device Flow
-    System.out.println("⏳ Step 1: Waiting for OAuth pre-flight checks and Device Flow navigation...");
-    Thread.sleep(3000);
+        // Step 1: Wait for OAuth flow to determine and navigate to Device Flow
+        System.out.println("⏳ Step 1: Waiting for OAuth pre-flight checks and Device Flow navigation...");
+        Thread.sleep(3000);
         
         // Verify we're on Device Flow page
-        if (!driver.getCurrentUrl().contains("setup/connect")) {
-            throw new RuntimeException("Expected Device Flow page, got: " + driver.getCurrentUrl());
-        }
+        String currentUrl = driver.getCurrentUrl();
+        assertTrue("Should be on Device Flow page", currentUrl.contains("setup/connect"));
+        System.out.println("✅ Step 1 verified: On Device Flow page");
+        
+        // Verify the page contains expected elements
+        String pageSource = driver.getPageSource();
+        assertTrue("Device Flow page should contain Connect button", 
+            pageSource.contains("Connect") || pageSource.contains("Submit"));
         
         // Step 2: Click Connect button (code is pre-filled)
         System.out.println("📱 Step 2: Clicking Connect button...");
         WebElement connectButton = driver.findElement(By.xpath("//input[@type='submit' and (@value='Connect' or @value='Submit')]"));
+        assertNotNull("Connect button should be found", connectButton);
+        assertTrue("Connect button should be enabled", connectButton.isEnabled());
         connectButton.click();
         Thread.sleep(2000);
         
+        // Verify we were redirected from Device Flow page
+        String postConnectUrl = driver.getCurrentUrl();
+        assertNotEquals("URL should change after clicking Connect", currentUrl, postConnectUrl);
+        System.out.println("✅ Step 2 verified: Redirected after Connect click");
+        
         // Step 3: Perform login (redirected to login page)
         System.out.println("🔐 Step 3: Performing login...");
+        
+        // Verify we're on login page
+        String loginPageSource = driver.getPageSource();
+        assertTrue("Should be on login page", 
+            loginPageSource.contains("name=\"username\"") && loginPageSource.contains("name=\"pw\""));
+        
         performAutomatedLogin();
+        
+        // Verify login was successful (no longer on login page)
+        String postLoginUrl = driver.getCurrentUrl();
+        assertFalse("Should not be on login page after successful login", 
+            postLoginUrl.contains("/login"));
+        System.out.println("✅ Step 3 verified: Login successful");
         
         // Step 4: Click Allow button on authorization page
         System.out.println("✅ Step 4: Clicking Allow button...");
         Thread.sleep(2000); // Wait for authorization page to load
+        
+        // Verify we're on authorization page
+        String authPageSource = driver.getPageSource();
+        assertTrue("Should be on authorization page with Allow button", 
+            authPageSource.contains("Allow"));
+        
         WebElement allowButton = driver.findElement(By.xpath("//input[normalize-space(@value)='Allow']"));
+        assertNotNull("Allow button should be found", allowButton);
+        assertTrue("Allow button should be enabled", allowButton.isEnabled());
         allowButton.click();
         Thread.sleep(3000);
         
         // Verify we reached success page
-        if (!driver.getCurrentUrl().contains("user_approved=1")) {
-            throw new RuntimeException("Expected success page, got: " + driver.getCurrentUrl());
-        }
+        String successUrl = driver.getCurrentUrl();
+        assertTrue("Should reach success page after Allow", successUrl.contains("user_approved=1"));
+        System.out.println("✅ Step 4 verified: Authorization successful");
         
         // Step 5: Click Continue button to complete flow
         System.out.println("➡️ Step 5: Clicking Continue button...");
+        
+        // Verify Continue button exists
+        String successPageSource = driver.getPageSource();
+        assertTrue("Success page should contain Continue button", 
+            successPageSource.contains("Continue"));
+        
         WebElement continueButton = driver.findElement(By.xpath("//input[@value='Continue']"));
+        assertNotNull("Continue button should be found", continueButton);
+        assertTrue("Continue button should be enabled", continueButton.isEnabled());
         continueButton.click();
         
         System.out.println("🎉 Clean OAuth flow test PASSED!");
@@ -296,25 +352,42 @@ public class OAuthTestSeamSeleniumTest extends ConfigTestBase {
         String username = System.getProperty("test.user.default");
         String password = System.getProperty("test.password");
         
+        // Assert credentials are available
+        assertNotNull("Username should be provided via system property", username);
+        assertNotNull("Password should be provided via system property", password);
+        assertFalse("Username should not be empty", username.trim().isEmpty());
+        assertFalse("Password should not be empty", password.trim().isEmpty());
+        
         System.out.println("📋 Using credentials from pom.xml: " + username);
 
         try {
             WebElement usernameField = wait.until(ExpectedConditions.presenceOfElementLocated(By.name("username")));
+            assertNotNull("Username field should be found", usernameField);
+            assertTrue("Username field should be enabled", usernameField.isEnabled());
             usernameField.clear();
             usernameField.sendKeys(username);
 
             WebElement passwordField = driver.findElement(By.name("pw"));
+            assertNotNull("Password field should be found", passwordField);
+            assertTrue("Password field should be enabled", passwordField.isEnabled());
             passwordField.clear();
             passwordField.sendKeys(password);
 
             WebElement loginButton = driver.findElement(By.name("Login"));
+            assertNotNull("Login button should be found", loginButton);
+            assertTrue("Login button should be enabled", loginButton.isEnabled());
             loginButton.click();
 
+            // Wait for login to complete (no longer on login page)
             wait.until(ExpectedConditions.not(ExpectedConditions.urlContains("/login")));
             
+            // Verify we're no longer on login page
+            String currentUrl = driver.getCurrentUrl();
+            assertFalse("Should not be on login page after successful login", 
+                currentUrl.contains("/login"));
+            
         } catch (Exception e) {
-            System.out.println("❌ Login failed: " + e.getMessage());
-            throw e;
+            Assert.fail("Login failed: " + e.getMessage());
         }
     }
 } 
