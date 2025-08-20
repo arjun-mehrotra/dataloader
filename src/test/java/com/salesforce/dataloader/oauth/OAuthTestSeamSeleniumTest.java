@@ -236,9 +236,9 @@ public class OAuthTestSeamSeleniumTest extends ConfigTestBase {
             }
         });
         
-        // Step 1: Wait for PKCE timeout and Device Flow to start
-        System.out.println("⏳ Step 1: Waiting for PKCE timeout and Device Flow...");
-        Thread.sleep(10000);
+            // Step 1: Wait for OAuth flow to determine and navigate to Device Flow
+    System.out.println("⏳ Step 1: Waiting for OAuth pre-flight checks and Device Flow navigation...");
+    Thread.sleep(3000);
         
         // Verify we're on Device Flow page
         if (!driver.getCurrentUrl().contains("setup/connect")) {
