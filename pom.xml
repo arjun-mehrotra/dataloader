@@ -17,10 +17,10 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
     <!-- test properties -->
-    <test.endpoint>https://testendpoint</test.endpoint>
-    <test.user.default>admin@org.com</test.user.default>
+    <test.endpoint>https://orgfarm-dd01739dd3.test1.my.pc-rnd.salesforce-setup.com</test.endpoint>
+    <test.user.default>epic.out.9a9445e4ff18@orgfarm.salesforce.com</test.user.default>
     <test.user.restricted>standard@org.com</test.user.restricted>
-    <test.password></test.password>
+    <test.password>orgfarm1234</test.password>
     <!-- use the encrypted password -->
     <test.encryptionFile></test.encryptionFile>
     <test.redirect>true</test.redirect>
@@ -175,6 +175,19 @@
       <groupId>org.mockito</groupId>
       <artifactId>mockito-core</artifactId>
       <version>5.18.0</version>
+      <scope>test</scope>
+    </dependency>
+    <!-- Selenium WebDriver for OAuth testing -->
+    <dependency>
+      <groupId>org.seleniumhq.selenium</groupId>
+      <artifactId>selenium-java</artifactId>
+      <version>4.15.0</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.seleniumhq.selenium</groupId>
+      <artifactId>selenium-chrome-driver</artifactId>
+      <version>4.15.0</version>
       <scope>test</scope>
     </dependency>
   </dependencies>
@@ -607,6 +620,11 @@
             <phase>verify</phase>
             <configuration>
               <skipTests>!${skip-unit-tests}</skipTests>
+              <systemPropertyVariables>
+                <test.endpoint>${test.endpoint}</test.endpoint>
+                <test.user.default>${test.user.default}</test.user.default>
+                <test.password>${test.password}</test.password>
+              </systemPropertyVariables>
               <excludes>
                 <exclude>**/action/**,
                                     **/dao/**,
