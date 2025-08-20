@@ -17,10 +17,10 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
     <!-- test properties -->
-    <test.endpoint>https://orgfarm-dd01739dd3.test1.my.pc-rnd.salesforce-setup.com</test.endpoint>
-    <test.user.default>epic.out.9a9445e4ff18@orgfarm.salesforce.com</test.user.default>
+    <test.endpoint>https://testendpoint</test.endpoint>
+    <test.user.default>admin@org.com</test.user.default>
     <test.user.restricted>standard@org.com</test.user.restricted>
-    <test.password>orgfarm1234</test.password>
+    <test.password></test.password>
     <!-- use the encrypted password -->
     <test.encryptionFile></test.encryptionFile>
     <test.redirect>true</test.redirect>
