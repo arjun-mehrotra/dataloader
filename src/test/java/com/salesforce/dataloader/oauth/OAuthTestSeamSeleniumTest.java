@@ -107,7 +107,7 @@ public class OAuthTestSeamSeleniumTest extends ConfigTestBase {
     }
 
     @Test
-    public void testHandleOAuthLoginWithTestSeam() throws Exception {
+    public void testHandleOAuthLoginWithPKCEFlow() throws Exception {
         System.out.println("🧪 Testing handleOAuthLogin() with automated Selenium flow");
 
         // Start handleOAuthLogin() in background
@@ -249,7 +249,7 @@ public class OAuthTestSeamSeleniumTest extends ConfigTestBase {
      * Refactored based on actual execution path analysis.
      */
     @Test
-    public void testDeviceFlowBrowserAutomation() throws Exception {
+    public void testHandleOAuthLoginWithDeviceFlow() throws Exception {
         System.out.println("🧪 Starting clean OAuth flow test...");
 
         // Set up Selenium to intercept browser calls
