@@ -77,7 +77,7 @@ public class OperationUIAction extends Action {
                 if (instanceUrl == null || instanceUrl.isEmpty()) {
                     // Try to get from PartnerConnection's service endpoint
                     try {
-                        String serviceEndpoint = controller.getPartnerClient().getConnection().getConfig().getServiceEndpoint();
+                        String serviceEndpoint = controller.getClient().getConnectorConfig().getServiceEndpoint();
                         if (serviceEndpoint != null && !serviceEndpoint.isEmpty()) {
                             URL endpointUrl = new URL(serviceEndpoint);
                             instanceUrl = endpointUrl.getProtocol() + "://" + endpointUrl.getHost();
@@ -97,7 +97,7 @@ public class OperationUIAction extends Action {
                     conn.setConnectTimeout(3000); // 3 seconds
                     conn.setReadTimeout(3000); // 3 seconds
                     conn.setRequestMethod("GET");
-                    String sessionId = controller.getPartnerClient().getSession().getSessionId();
+                    String sessionId = controller.getLoginClient().getSession().getSessionId();
                     conn.setRequestProperty("Authorization", "Bearer " + sessionId);
                     conn.setRequestProperty("Accept", "application/json");
                     int responseCode = conn.getResponseCode();
